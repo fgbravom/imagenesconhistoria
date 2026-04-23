@@ -27,7 +27,7 @@ export default function PhotoDetail() {
     if (!confirm('¿Eliminar esta fotografía?')) return
     await insforge.storage.from('photos').remove([photo.image_key])
     await insforge.database.from('photos').delete().eq('id', id)
-    navigate('/galeria')
+    navigate('/')
   }
 
   if (loading) {
@@ -42,7 +42,7 @@ export default function PhotoDetail() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <p className="text-stone-500 font-sans">Fotografía no encontrada.</p>
-        <Link to="/galeria" className="text-brand-red text-sm font-sans hover:underline">
+        <Link to="/" className="text-brand-red text-sm font-sans hover:underline">
           Volver a la galería
         </Link>
       </div>
@@ -54,7 +54,7 @@ export default function PhotoDetail() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         <div className="flex items-center justify-between mb-8">
           <Link
-            to="/galeria"
+            to="/"
             className="flex items-center gap-2 text-stone-500 hover:text-stone-100 transition-colors text-sm font-sans uppercase tracking-widest"
           >
             <ArrowLeft className="w-4 h-4" /> Galería
@@ -108,7 +108,7 @@ export default function PhotoDetail() {
           <div>
             {photo.sports && (
               <Link
-                to={`/galeria?sport=${photo.sports.slug}`}
+                to={`/?sport=${photo.sports.slug}`}
                 className="text-brand-red text-xs uppercase tracking-widest font-sans hover:text-red-400 transition-colors"
               >
                 {photo.sports.name}

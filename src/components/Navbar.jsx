@@ -12,7 +12,7 @@ export default function Navbar() {
   }
 
   return (
-    <header className="border-b border-stone-800 bg-stone-950/95 backdrop-blur sticky top-0 z-50">
+    <header className="border-b border-stone-800/50 bg-transparent backdrop-blur sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 group">
           <Camera className="w-6 h-6 text-brand-red" />
