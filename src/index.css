@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-stone-950 text-stone-100 antialiased;
+    font-family: 'Georgia', 'Times New Roman', serif;
+  }
+  #root {
+    @apply min-h-screen;
+  }
+}
+
+@layer components {
+  .input-field {
+    @apply w-full bg-stone-900 border border-stone-700 text-stone-100 placeholder-stone-600 px-4 py-2 text-sm font-sans focus:outline-none focus:border-brand-red transition-colors;
+  }
+}
