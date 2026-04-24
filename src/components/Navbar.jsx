@@ -17,7 +17,7 @@ export default function Navbar() {
         <Link to="/" className="flex items-center gap-2 group">
           <Camera className="w-6 h-6 text-brand-red" />
           <span className="font-serif text-lg font-bold tracking-tight text-stone-100 group-hover:text-brand-red transition-colors">
-            Imágenes con Historia
+            Imágen e Historia
           </span>
         </Link>
 

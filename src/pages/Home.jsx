@@ -104,12 +104,12 @@ export default function Home() {
           </div>
 
           <h1 className="font-serif text-5xl sm:text-7xl lg:text-8xl text-stone-100 leading-none tracking-tight">
-            Imágenes<br />
-            <span className="italic text-stone-400">con Historia</span>
+            Imágen<br />
+            <span className="italic text-stone-400">e Historia</span>
           </h1>
 
           <p className="mt-6 text-stone-400 text-lg sm:text-xl font-sans max-w-xl mx-auto leading-relaxed">
-            Recopilación de fotografías históricas del deporte chileno. Cada imagen guarda una historia.
+            Recopilación de fotografías históricas para Chile y el mundo. Cada imagen guarda una historia.
           </p>
 
           {featured && (
@@ -130,17 +130,17 @@ export default function Home() {
       </section>
 
       {/* ── GALERÍA ── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16">
+      <section className="py-16">
 
         {/* Section label */}
-        <div className="flex items-center gap-4 mb-10">
+        <div className="flex items-center gap-4 mb-10 max-w-7xl mx-auto px-4 sm:px-6">
           <div className="h-px flex-1 bg-stone-800" />
           <span className="text-stone-500 text-xs font-sans uppercase tracking-[0.25em]">Galería</span>
           <div className="h-px flex-1 bg-stone-800" />
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col gap-4 mb-10">
+        <div className="flex flex-col gap-4 mb-10 max-w-7xl mx-auto px-4 sm:px-6">
           {/* Search */}
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500" />
@@ -182,25 +182,23 @@ export default function Home() {
 
         {/* Grid */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-2">
             {[...Array(8)].map((_, i) => (
-              <div key={i} className="bg-stone-900 animate-pulse">
-                <div className="aspect-[4/3] bg-stone-800" />
-                <div className="p-4 space-y-2">
-                  <div className="h-3 bg-stone-800 rounded w-1/3" />
-                  <div className="h-5 bg-stone-800 rounded w-3/4" />
-                  <div className="h-3 bg-stone-800 rounded" />
-                </div>
-              </div>
+              <div
+                key={i}
+                className={`break-inside-avoid mb-2 bg-stone-900 animate-pulse ${
+                  i % 3 === 0 ? 'aspect-[3/4]' : i % 3 === 1 ? 'aspect-[4/3]' : 'aspect-square'
+                }`}
+              />
             ))}
           </div>
         ) : photos.length > 0 ? (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-2">
               {photos.map(p => <PhotoCard key={p.id} photo={p} />)}
             </div>
             {photos.length % PAGE_SIZE === 0 && (
-              <div className="text-center mt-12">
+              <div className="text-center mt-12 px-4">
                 <button
                   onClick={loadMore}
                   disabled={loadingMore}
