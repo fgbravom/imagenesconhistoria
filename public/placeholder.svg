@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300" role="img" aria-label="Imagen pendiente de subir">
+  <rect width="400" height="300" fill="#1c1917"/>
+  <g fill="none" stroke="#57534e" stroke-width="2">
+    <rect x="140" y="105" width="120" height="90" rx="4"/>
+    <circle cx="170" cy="132" r="10"/>
+    <path d="M146 188l38-38 26 26 22-22 22 22v8a4 4 0 0 1-4 4H150a4 4 0 0 1-4-4z" fill="#57534e" stroke="none"/>
+  </g>
+  <text x="200" y="232" fill="#78716c" font-family="system-ui, sans-serif" font-size="15" text-anchor="middle">Imagen pendiente</text>
+</svg>

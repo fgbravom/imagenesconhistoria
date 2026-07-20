@@ -8,3 +8,21 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
+
+# Respaldos de base de datos: contienen hashes de contraseñas y secretos cifrados
+*.sql.gz
+
+# InsForge & AI agent skills
+.insforge
+.agent
+.agents
+.augment
+.claude
+.cline
+.github/copilot*
+.kilocode
+.qoder
+.qwen
+.roo
+.trae
+.windsurf

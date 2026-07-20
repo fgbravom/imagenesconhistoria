@@ -160,6 +160,23 @@ function FeaturedManager() {
   )
 }
 
+/* ── Subida de imagen al bucket ── */
+async function uploadImage(file) {
+  const ext = file.name.split('.').pop()
+  const key = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+
+  const { data, error } = await insforge.storage
+    .from('photos')
+    .upload(key, file, { contentType: file.type })
+
+  if (error) return { error }
+
+  return {
+    key,
+    url: data?.url ?? `${import.meta.env.VITE_INSFORGE_URL}/api/storage/buckets/photos/objects/${key}`,
+  }
+}
+
 /* ── Gestión y edición de fotos ── */
 function PhotoManager() {
   const [photos, setPhotos] = useState([])
@@ -189,7 +206,8 @@ function PhotoManager() {
 
   async function handleDelete(photo) {
     if (!confirm(`¿Eliminar "${photo.title}"? Esta acción no se puede deshacer.`)) return
-    await insforge.storage.from('photos').remove([photo.image_key])
+    // Las fotos restauradas del respaldo no tienen archivo en storage todavía.
+    if (photo.image_key) await insforge.storage.from('photos').remove([photo.image_key])
     await insforge.database.from('photos').delete().eq('id', photo.id)
     setPhotos(prev => prev.filter(p => p.id !== photo.id))
     window.dispatchEvent(new CustomEvent('photo-updated'))
@@ -279,30 +297,102 @@ function EditForm({ photo, sports, onSaved, onCancel }) {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [file, setFile] = useState(null)
+  const [preview, setPreview] = useState(null)
+  const fileRef = useRef()
+
+  function handleFile(e) {
+    const f = e.target.files[0]
+    if (!f) return
+    setFile(f)
+    setPreview(URL.createObjectURL(f))
+  }
+
+  function clearFile() {
+    setFile(null)
+    setPreview(null)
+    if (fileRef.current) fileRef.current.value = ''
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setSaving(true)
     setError(null)
+
+    const changes = {
+      ...form,
+      year: form.year ? parseInt(form.year) : null,
+      sport_id: form.sport_id || null,
+    }
+
+    // Si eligió una imagen nueva, subirla antes de guardar los datos.
+    if (file) {
+      const { key, url, error: uploadErr } = await uploadImage(file)
+      if (uploadErr) {
+        setError('Error al subir la imagen.')
+        setSaving(false)
+        return
+      }
+      // Borrar el archivo anterior solo si existía uno.
+      if (photo.image_key) {
+        await insforge.storage.from('photos').remove([photo.image_key])
+      }
+      changes.image_url = url
+      changes.image_key = key
+    }
+
     const { error } = await insforge.database
       .from('photos')
-      .update({
-        ...form,
-        year: form.year ? parseInt(form.year) : null,
-        sport_id: form.sport_id || null,
-      })
+      .update(changes)
       .eq('id', photo.id)
 
     if (error) {
       setError('Error al guardar los cambios.')
       setSaving(false)
     } else {
-      onSaved({ ...photo, ...form, year: form.year ? parseInt(form.year) : null })
+      onSaved({ ...photo, ...changes })
     }
   }
 
   return (
     <form onSubmit={handleSubmit} className="bg-stone-900/60 border-t border-stone-800 p-6 space-y-5">
+      <div>
+        <label className="block text-xs text-stone-500 font-sans uppercase tracking-widest mb-2">
+          Fotografía
+        </label>
+        <div className="flex items-start gap-4">
+          <div className="relative flex-shrink-0">
+            <img
+              src={preview ?? photo.image_url}
+              alt={photo.title}
+              className="w-40 h-28 object-cover border border-stone-700"
+            />
+            {preview && (
+              <button type="button" onClick={clearFile}
+                className="absolute top-1 right-1 bg-stone-950/80 text-stone-300 hover:text-white p-1"
+                title="Descartar imagen nueva">
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          <div className="space-y-2">
+            <button type="button" onClick={() => fileRef.current.click()}
+              className="flex items-center gap-2 text-xs font-sans text-stone-300 border border-stone-700 hover:border-stone-500 px-4 py-2 transition-colors uppercase tracking-widest">
+              <Upload className="w-3 h-3" />
+              {photo.image_key ? 'Reemplazar imagen' : 'Subir imagen'}
+            </button>
+            <p className="text-stone-600 text-xs font-sans">
+              {preview
+                ? 'Se subirá al guardar los cambios.'
+                : photo.image_key
+                  ? 'La imagen actual se borrará del almacenamiento al reemplazarla.'
+                  : 'Esta fotografía aún no tiene imagen.'}
+            </p>
+          </div>
+        </div>
+        <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
+      </div>
+
       <div className="grid grid-cols-1 gap-5">
         <Field label="Título" required>
           <input type="text" required value={form.title}
@@ -405,12 +495,7 @@ function UploadForm() {
     setUploading(true)
     setStatus(null)
 
-    const ext = file.name.split('.').pop()
-    const key = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-
-    const { data: uploadData, error: uploadErr } = await insforge.storage
-      .from('photos')
-      .upload(key, file, { contentType: file.type })
+    const { key, url, error: uploadErr } = await uploadImage(file)
 
     if (uploadErr) {
       setStatus({ type: 'error', msg: 'Error al subir la imagen.' })
@@ -418,13 +503,11 @@ function UploadForm() {
       return
     }
 
-    const image_url = uploadData?.url ?? `${import.meta.env.VITE_INSFORGE_URL}/storage/v1/object/public/photos/${key}`
-
     const { error: dbErr } = await insforge.database.from('photos').insert([{
       ...form,
       year: form.year ? parseInt(form.year) : null,
       sport_id: form.sport_id || null,
-      image_url,
+      image_url: url,
       image_key: key,
       featured: false,
     }])
