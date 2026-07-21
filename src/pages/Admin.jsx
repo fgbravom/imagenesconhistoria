@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Upload, X, CheckCircle, AlertCircle, Star, ImageIcon, Pencil, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Upload, X, CheckCircle, AlertCircle, Star, ImageIcon, Pencil, Trash2, ChevronDown, ChevronUp, Send } from 'lucide-react'
 import { insforge } from '../lib/insforge'
 import { useAuth } from '../lib/AuthContext'
 
@@ -29,9 +29,8 @@ export default function Admin() {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-16">
-        <FeaturedManager />
         <PhotoManager />
-        <UploadForm />
+        <PublishManager />
       </div>
 
       <footer className="border-t border-stone-800 py-8 text-center mt-8">
@@ -40,123 +39,6 @@ export default function Admin() {
         </p>
       </footer>
     </div>
-  )
-}
-
-/* ── Gestión de foto de portada ── */
-function FeaturedManager() {
-  const [photos, setPhotos] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [setting, setSetting] = useState(null)
-  const [status, setStatus] = useState(null)
-
-  useEffect(() => {
-    fetchPhotos()
-    window.addEventListener('photo-uploaded', fetchPhotos)
-    window.addEventListener('photo-updated', fetchPhotos)
-    return () => {
-      window.removeEventListener('photo-uploaded', fetchPhotos)
-      window.removeEventListener('photo-updated', fetchPhotos)
-    }
-  }, [])
-
-  async function fetchPhotos() {
-    setLoading(true)
-    const { data } = await insforge.database
-      .from('photos')
-      .select('id, title, image_url, featured, year, athlete_name')
-      .order('created_at', { ascending: false })
-    setPhotos(data ?? [])
-    setLoading(false)
-  }
-
-  async function setFeatured(photoId) {
-    setSetting(photoId)
-    setStatus(null)
-
-    // Primero desmarcar la portada actual (solo la que tiene featured=true)
-    await insforge.database
-      .from('photos')
-      .update({ featured: false })
-      .eq('featured', true)
-
-    // Luego marcar la nueva
-    const { error } = await insforge.database
-      .from('photos')
-      .update({ featured: true })
-      .eq('id', photoId)
-
-    if (error) {
-      setStatus({ type: 'error', msg: 'Error al actualizar la portada.' })
-    } else {
-      setPhotos(prev => prev.map(p => ({ ...p, featured: p.id === photoId })))
-      setStatus({ type: 'success', msg: 'Foto de portada actualizada.' })
-    }
-    setSetting(null)
-  }
-
-  return (
-    <section>
-      <SectionHeader icon={<Star className="w-5 h-5 text-amber-400" />} title="Foto de Portada" />
-      <p className="text-stone-500 text-sm font-sans mb-6">
-        La foto con borde dorado aparece en el hero de la página principal. Haz clic en otra para cambiarla.
-      </p>
-
-      {status && <StatusBanner status={status} className="mb-6" />}
-
-      {loading ? (
-        <SkeletonGrid count={4} />
-      ) : photos.length === 0 ? (
-        <p className="text-stone-600 font-sans text-sm">Aún no has subido fotografías.</p>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {photos.map(photo => (
-            <button
-              key={photo.id}
-              onClick={() => !photo.featured && setFeatured(photo.id)}
-              disabled={setting === photo.id || photo.featured}
-              className={`group relative aspect-[4/3] overflow-hidden transition-all ${
-                photo.featured
-                  ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-stone-950 cursor-default'
-                  : 'ring-1 ring-stone-700 hover:ring-brand-red hover:ring-offset-1 hover:ring-offset-stone-950 cursor-pointer'
-              }`}
-            >
-              <img
-                src={photo.image_url}
-                alt={photo.title}
-                className={`w-full h-full object-cover transition-all duration-300 ${photo.featured ? '' : 'grayscale group-hover:grayscale-0'}`}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 to-transparent" />
-
-              {photo.featured && (
-                <div className="absolute top-2 left-2 bg-amber-400 text-stone-950 text-xs px-2 py-0.5 font-sans uppercase tracking-widest flex items-center gap-1">
-                  <Star className="w-3 h-3 fill-stone-950" /> Portada
-                </div>
-              )}
-
-              {setting === photo.id && (
-                <div className="absolute inset-0 bg-stone-950/60 flex items-center justify-center">
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                </div>
-              )}
-
-              <div className="absolute bottom-0 left-0 right-0 p-2">
-                <p className="text-stone-100 text-xs font-sans leading-tight line-clamp-1">{photo.title}</p>
-                {photo.year && <p className="text-stone-400 text-xs font-sans">{photo.year}</p>}
-              </div>
-
-              {!photo.featured && setting !== photo.id && (
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="bg-brand-red text-white text-xs font-sans uppercase tracking-widest px-3 py-1.5">
-                    Usar como portada
-                  </span>
-                </div>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-    </section>
   )
 }
 
@@ -183,6 +65,8 @@ function PhotoManager() {
   const [sports, setSports] = useState([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState(null)
+  const [settingFeatured, setSettingFeatured] = useState(null)
+  const [status, setStatus] = useState(null)
 
   useEffect(() => {
     fetchAll()
@@ -204,6 +88,31 @@ function PhotoManager() {
     setLoading(false)
   }
 
+  async function setFeatured(photoId) {
+    setSettingFeatured(photoId)
+    setStatus(null)
+
+    // Primero desmarcar la portada actual (solo la que tiene featured=true)
+    await insforge.database
+      .from('photos')
+      .update({ featured: false })
+      .eq('featured', true)
+
+    // Luego marcar la nueva
+    const { error } = await insforge.database
+      .from('photos')
+      .update({ featured: true })
+      .eq('id', photoId)
+
+    if (error) {
+      setStatus({ type: 'error', msg: 'Error al actualizar la portada.' })
+    } else {
+      setPhotos(prev => prev.map(p => ({ ...p, featured: p.id === photoId })))
+      setStatus({ type: 'success', msg: 'Foto de portada actualizada.' })
+    }
+    setSettingFeatured(null)
+  }
+
   async function handleDelete(photo) {
     if (!confirm(`¿Eliminar "${photo.title}"? Esta acción no se puede deshacer.`)) return
     // Las fotos restauradas del respaldo no tienen archivo en storage todavía.
@@ -221,10 +130,12 @@ function PhotoManager() {
 
   return (
     <section>
-      <SectionHeader icon={<Pencil className="w-5 h-5 text-stone-400" />} title="Editar Fotografías" />
+      <SectionHeader icon={<ImageIcon className="w-5 h-5 text-stone-400" />} title="Fotografías" />
       <p className="text-stone-500 text-sm font-sans mb-6">
-        Haz clic en "Editar" para modificar los datos de cualquier fotografía publicada.
+        Marca la portada, edita los datos o elimina cualquier fotografía publicada.
       </p>
+
+      {status && <StatusBanner status={status} className="mb-6" />}
 
       {loading ? (
         <div className="space-y-2">
@@ -241,15 +152,39 @@ function PhotoManager() {
                 <img
                   src={photo.image_url}
                   alt={photo.title}
-                  className="w-16 h-12 object-cover flex-shrink-0 grayscale"
+                  className={`w-16 h-12 object-cover flex-shrink-0 grayscale transition-all ${
+                    photo.featured ? 'ring-2 ring-amber-400' : ''
+                  }`}
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="text-stone-100 text-sm font-sans font-medium truncate">{photo.title}</p>
+                  <div className="flex items-center gap-2">
+                    {photo.featured && (
+                      <span className="flex items-center gap-1 bg-amber-400 text-stone-950 text-xs px-1.5 py-0.5 font-sans uppercase tracking-widest flex-shrink-0">
+                        <Star className="w-2.5 h-2.5 fill-stone-950" /> Portada
+                      </span>
+                    )}
+                    <p className="text-stone-100 text-sm font-sans font-medium truncate">{photo.title}</p>
+                  </div>
                   <p className="text-stone-500 text-xs font-sans">
                     {[photo.sports?.name, photo.athlete_name, photo.year].filter(Boolean).join(' · ')}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => setFeatured(photo.id)}
+                    disabled={photo.featured || settingFeatured === photo.id}
+                    aria-label={photo.featured ? 'Portada actual' : 'Marcar como portada'}
+                    title={photo.featured ? 'Portada actual' : 'Marcar como portada'}
+                    className={`p-2.5 transition-colors ${
+                      photo.featured ? 'text-amber-400 cursor-default' : 'text-stone-600 hover:text-amber-400'
+                    }`}
+                  >
+                    {settingFeatured === photo.id ? (
+                      <div className="w-3.5 h-3.5 border-2 border-stone-500 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Star className={`w-3.5 h-3.5 ${photo.featured ? 'fill-amber-400' : ''}`} />
+                    )}
+                  </button>
                   <button
                     onClick={() => setEditingId(editingId === photo.id ? null : photo.id)}
                     className="flex items-center gap-1 text-xs font-sans text-stone-400 hover:text-stone-100 border border-stone-700 hover:border-stone-500 px-3 py-1.5 transition-colors uppercase tracking-widest"
@@ -260,10 +195,10 @@ function PhotoManager() {
                   </button>
                   <button
                     onClick={() => handleDelete(photo)}
-                    className="text-stone-600 hover:text-brand-red transition-colors p-1.5"
-                    title="Eliminar"
+                    aria-label="Eliminar fotografía"
+                    className="flex items-center gap-1 text-xs font-sans text-stone-600 hover:text-brand-red active:text-brand-red p-2.5 transition-colors uppercase tracking-widest"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" /> Eliminar
                   </button>
                 </div>
               </div>
@@ -455,10 +390,11 @@ function EditForm({ photo, sports, onSaved, onCancel }) {
   )
 }
 
-/* ── Formulario de subida ── */
-function UploadForm() {
+/* ── Publicar fotografía: ahora o en cola ── */
+function PublishManager() {
   const fileRef = useRef()
   const [sports, setSports] = useState([])
+  const [mode, setMode] = useState('now') // 'now' | 'queue'
   const [form, setForm] = useState({
     title: '', story: '', sport_id: '', year: '',
     athlete_name: '', photographer: '', location: '',
@@ -467,12 +403,28 @@ function UploadForm() {
   const [preview, setPreview] = useState(null)
   const [status, setStatus] = useState(null)
   const [uploading, setUploading] = useState(false)
+  const [queue, setQueue] = useState([])
+  const [loadingQueue, setLoadingQueue] = useState(true)
+  const [publishing, setPublishing] = useState(false)
 
   useEffect(() => {
     insforge.database.from('sports').select('*').order('name').then(({ data }) => {
       if (data) setSports(data)
     })
+    fetchQueue()
   }, [])
+
+  async function fetchQueue() {
+    setLoadingQueue(true)
+    const { data } = await insforge.database
+      .from('photo_queue')
+      .select('id, title, year, image_url, queue_order, created_at')
+      .eq('status', 'pending')
+      .order('queue_order', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true })
+    setQueue(data ?? [])
+    setLoadingQueue(false)
+  }
 
   function handleFile(e) {
     const f = e.target.files[0]
@@ -503,32 +455,148 @@ function UploadForm() {
       return
     }
 
-    const { error: dbErr } = await insforge.database.from('photos').insert([{
+    const payload = {
       ...form,
       year: form.year ? parseInt(form.year) : null,
       sport_id: form.sport_id || null,
       image_url: url,
       image_key: key,
-      featured: false,
-    }])
-
-    if (dbErr) {
-      setStatus({ type: 'error', msg: 'Error al guardar en la base de datos.' })
-      setUploading(false)
-      return
     }
 
-    setStatus({ type: 'success', msg: 'Fotografía publicada. Puedes marcarla como portada en la sección de arriba.' })
+    if (mode === 'now') {
+      const { error: dbErr } = await insforge.database.from('photos').insert([{ ...payload, featured: false }])
+      if (dbErr) {
+        setStatus({ type: 'error', msg: 'Error al guardar en la base de datos.' })
+        setUploading(false)
+        return
+      }
+      setStatus({ type: 'success', msg: 'Fotografía publicada. Puedes marcarla como portada en la sección de arriba.' })
+      window.dispatchEvent(new CustomEvent('photo-uploaded'))
+    } else {
+      const { error: dbErr } = await insforge.database.from('photo_queue').insert([{ ...payload, status: 'pending' }])
+      if (dbErr) {
+        setStatus({ type: 'error', msg: 'Error al guardar en la cola.' })
+        setUploading(false)
+        return
+      }
+      setStatus({ type: 'success', msg: 'Fotografía agregada a la cola. Se publicará automáticamente según su turno.' })
+      fetchQueue()
+    }
+
     setForm({ title: '', story: '', sport_id: '', year: '', athlete_name: '', photographer: '', location: '' })
     setFile(null)
     setPreview(null)
     setUploading(false)
+  }
+
+  async function handlePublishNow() {
+    setPublishing(true)
+    setStatus(null)
+    const { error } = await insforge.database.rpc('publish_next_queued_photo')
+    setPublishing(false)
+    if (error) {
+      setStatus({ type: 'error', msg: 'Error al publicar.' })
+      return
+    }
+    setStatus({ type: 'success', msg: 'Fotografía publicada desde la cola.' })
+    fetchQueue()
     window.dispatchEvent(new CustomEvent('photo-uploaded'))
+  }
+
+  async function updateOrder(id, value) {
+    const queue_order = value === '' ? null : parseInt(value)
+    setQueue(prev => prev.map(q => q.id === id ? { ...q, queue_order } : q))
+    await insforge.database.from('photo_queue').update({ queue_order }).eq('id', id)
+    fetchQueue()
   }
 
   return (
     <section>
-      <SectionHeader icon={<ImageIcon className="w-5 h-5 text-stone-400" />} title="Publicar Fotografía" />
+      <SectionHeader icon={<Upload className="w-5 h-5 text-stone-400" />} title="Publicar Fotografía" />
+
+      <div className="inline-flex border border-stone-700 mb-4">
+        <button
+          type="button"
+          onClick={() => setMode('now')}
+          className={`px-4 py-2 text-xs font-sans uppercase tracking-widest transition-colors ${
+            mode === 'now' ? 'bg-brand-red text-white' : 'text-stone-400 hover:text-stone-100'
+          }`}
+        >
+          Publicar ahora
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('queue')}
+          className={`px-4 py-2 text-xs font-sans uppercase tracking-widest transition-colors border-l border-stone-700 ${
+            mode === 'queue' ? 'bg-stone-100 text-stone-950' : 'text-stone-400 hover:text-stone-100'
+          }`}
+        >
+          Agregar a la cola
+        </button>
+      </div>
+
+      <p className="text-stone-500 text-sm font-sans mb-6">
+        {mode === 'now'
+          ? 'La fotografía queda visible en el sitio de inmediato.'
+          : 'Se guarda en la cola; una Schedule de InsForge publica automáticamente la más antigua (o de menor orden) cada semana.'}
+      </p>
+
+      {status && <StatusBanner status={status} className="mb-6" />}
+
+      {mode === 'queue' && (
+        loadingQueue ? (
+          <div className="space-y-2 mb-8">
+            {[...Array(2)].map((_, i) => <div key={i} className="h-16 bg-stone-900 animate-pulse" />)}
+          </div>
+        ) : queue.length > 0 ? (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-stone-500 text-xs font-sans uppercase tracking-widest">
+                {queue.length} en espera
+              </p>
+              <button
+                type="button"
+                onClick={handlePublishNow}
+                disabled={publishing}
+                className="flex items-center gap-1 text-xs font-sans text-stone-300 hover:text-brand-red border border-stone-700 hover:border-brand-red px-3 py-1.5 transition-colors uppercase tracking-widest disabled:opacity-50"
+              >
+                <Send className="w-3 h-3" />
+                {publishing ? 'Publicando...' : 'Publicar la siguiente ahora'}
+              </button>
+            </div>
+            <div className="divide-y divide-stone-800 border border-stone-800">
+              {queue.map((item, i) => (
+                <div key={item.id} className="flex items-center gap-4 p-4">
+                  <img src={item.image_url} alt={item.title} className="w-16 h-12 object-cover flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      {i === 0 && (
+                        <span className="bg-brand-red text-white text-xs px-1.5 py-0.5 uppercase tracking-widest font-sans flex-shrink-0">
+                          Siguiente
+                        </span>
+                      )}
+                      <p className="text-stone-100 text-sm font-sans font-medium truncate">{item.title}</p>
+                    </div>
+                    {item.year && <p className="text-stone-500 text-xs font-sans">{item.year}</p>}
+                  </div>
+                  <input
+                    type="number"
+                    defaultValue={item.queue_order ?? ''}
+                    onBlur={e => updateOrder(item.id, e.target.value)}
+                    placeholder="Orden"
+                    title="Orden manual (menor se publica antes); vacío = por fecha de ingreso"
+                    className="input-field w-20 text-center flex-shrink-0"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="text-stone-600 font-sans text-sm mb-8">
+            La cola está vacía. Agrega fotos abajo para las próximas publicaciones automáticas.
+          </p>
+        )
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div>
@@ -598,11 +666,18 @@ function UploadForm() {
           </Field>
         </div>
 
-        {status && <StatusBanner status={status} />}
-
-        <button type="submit" disabled={uploading}
-          className="bg-brand-red text-white px-10 py-3 text-sm font-sans uppercase tracking-widest hover:bg-red-700 transition-colors disabled:opacity-50">
-          {uploading ? 'Publicando...' : 'Publicar fotografía'}
+        <button
+          type="submit"
+          disabled={uploading}
+          className={`px-10 py-3 text-sm font-sans uppercase tracking-widest transition-colors disabled:opacity-50 ${
+            mode === 'now'
+              ? 'bg-brand-red text-white hover:bg-red-700'
+              : 'bg-stone-100 text-stone-950 hover:bg-white'
+          }`}
+        >
+          {mode === 'now'
+            ? (uploading ? 'Publicando...' : 'Publicar fotografía')
+            : (uploading ? 'Agregando...' : 'Agregar a la cola')}
         </button>
       </form>
     </section>
@@ -630,16 +705,6 @@ function StatusBanner({ status, className = '' }) {
         ? <AlertCircle className="w-4 h-4 flex-shrink-0" />
         : <CheckCircle className="w-4 h-4 flex-shrink-0" />}
       {status.msg}
-    </div>
-  )
-}
-
-function SkeletonGrid({ count }) {
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-      {[...Array(count)].map((_, i) => (
-        <div key={i} className="aspect-[4/3] bg-stone-800 animate-pulse" />
-      ))}
     </div>
   )
 }

@@ -1,9 +1,29 @@
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Calendar, User } from 'lucide-react'
 
 export default function PhotoCard({ photo }) {
+  const cardRef = useRef(null)
+  const [inView, setInView] = useState(false)
+
+  useEffect(() => {
+    const el = cardRef.current
+    if (!el) return
+
+    // En mobile no hay :hover, así que usamos la posición de scroll como
+    // equivalente: la tarjeta se "revela" al pasar por el centro de la
+    // pantalla, igual de reversible que un hover en desktop.
+    const observer = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting),
+      { rootMargin: '-35% 0px -35% 0px', threshold: 0 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   return (
     <Link
+      ref={cardRef}
       to={`/foto/${photo.id}`}
       className="group block break-inside-avoid mb-2 overflow-hidden relative bg-stone-900"
     >
@@ -11,11 +31,14 @@ export default function PhotoCard({ photo }) {
         src={photo.image_url}
         alt={photo.title}
         loading="lazy"
-        className="w-full block grayscale group-hover:grayscale-0 transition-all duration-500"
+        className={`w-full block transition-all duration-500 sm:grayscale sm:group-hover:grayscale-0 ${
+          inView ? 'grayscale-0' : 'grayscale'
+        }`}
       />
 
-      {/* Hover overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-stone-950/90 via-stone-950/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+      {/* Leyenda: solo en desktop, revelada con hover. En mobile no hay leyenda,
+          únicamente el cambio de blanco y negro a color al pasar por el centro. */}
+      <div className="hidden sm:flex absolute inset-0 bg-gradient-to-t from-stone-950/90 via-stone-950/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex-col justify-end p-4">
         {photo.sports && (
           <span className="text-brand-red text-xs uppercase tracking-widest font-sans">
             {photo.sports.name}

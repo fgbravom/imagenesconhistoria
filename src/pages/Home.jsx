@@ -29,6 +29,8 @@ export default function Home() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [heroLoaded, setHeroLoaded] = useState(false)
+  const [featuredChecked, setFeaturedChecked] = useState(false)
 
   useEffect(() => {
     insforge.database.from('sports').select('*').order('name').then(({ data }) => {
@@ -42,8 +44,14 @@ export default function Home() {
       .order('created_at', { ascending: false })
       .then(({ data }) => {
         if (data?.length) setFeatured(data[0])
+        setFeaturedChecked(true)
       })
   }, [])
+
+  // El hero se revela recién cuando la imagen destacada terminó de cargar (o,
+  // si no hay ninguna, apenas confirmamos que no hay nada que esperar) para
+  // que el texto y la foto aparezcan juntos en vez de por capas.
+  const heroReady = heroLoaded || (featuredChecked && !featured)
 
   useEffect(() => {
     setPage(0)
@@ -89,14 +97,21 @@ export default function Home() {
           <img
             src={featured.image_url}
             alt={featured.title}
-            className="absolute inset-0 w-full h-full object-cover grayscale opacity-30"
+            fetchPriority="high"
+            decoding="async"
+            onLoad={() => setHeroLoaded(true)}
+            className={`absolute inset-0 w-full h-full object-cover grayscale transition-opacity duration-700 ${heroLoaded ? 'opacity-30' : 'opacity-0'}`}
           />
         ) : (
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_#2d1a1a_0%,_#0a0a0a_70%)]" />
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-stone-950/60 via-stone-950/50 to-stone-950" />
 
-        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
+        <div
+          className={`relative z-10 text-center px-4 max-w-4xl mx-auto transition-opacity duration-700 ${
+            heroReady ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
           <div className="flex items-center justify-center gap-2 mb-6">
             <div className="h-px w-12 bg-brand-red" />
             <span className="text-brand-red text-xs uppercase tracking-[0.3em] font-sans">Chile — Deporte — Historia</span>
@@ -111,15 +126,6 @@ export default function Home() {
           <p className="mt-6 text-stone-400 text-lg sm:text-xl font-sans max-w-xl mx-auto leading-relaxed">
             Recopilación de fotografías históricas para Chile y el mundo. Cada imagen guarda una historia.
           </p>
-
-          {featured && (
-            <Link
-              to={`/foto/${featured.id}`}
-              className="inline-block mt-8 bg-brand-red text-white text-sm font-sans uppercase tracking-widest px-8 py-3 hover:bg-red-700 transition-colors"
-            >
-              Ver fotografía destacada
-            </Link>
-          )}
         </div>
 
         {/* Scroll indicator */}
@@ -182,7 +188,7 @@ export default function Home() {
 
         {/* Grid */}
         {loading ? (
-          <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-2">
+          <div className="columns-2 lg:columns-3 xl:columns-4 gap-2">
             {[...Array(8)].map((_, i) => (
               <div
                 key={i}
@@ -194,7 +200,7 @@ export default function Home() {
           </div>
         ) : photos.length > 0 ? (
           <>
-            <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-2">
+            <div className="columns-2 lg:columns-3 xl:columns-4 gap-2">
               {photos.map(p => <PhotoCard key={p.id} photo={p} />)}
             </div>
             {photos.length % PAGE_SIZE === 0 && (
