@@ -140,7 +140,7 @@ export default function Home() {
           </h1>
 
           <p className="mt-6 text-stone-400 text-lg sm:text-xl font-sans max-w-xl mx-auto leading-relaxed">
-            Cada imagen guarda una historia.
+            Una imagen, un recuerdo.
           </p>
         </div>
 
