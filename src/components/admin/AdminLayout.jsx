@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Camera, ImageIcon, Upload, ListOrdered, Menu, X, LogOut, ExternalLink } from 'lucide-react'
+import { Camera, LayoutDashboard, ImageIcon, Upload, ListOrdered, Menu, X, LogOut, ExternalLink } from 'lucide-react'
 import { insforge } from '../../lib/insforge'
 import { useAuth } from '../../lib/AuthContext'
 
 const NAV = [
+  { to: '/admin', label: 'Resumen', icon: LayoutDashboard, end: true },
   { to: '/admin/fotos', label: 'Fotografías', icon: ImageIcon },
   { to: '/admin/publicar', label: 'Publicar', icon: Upload },
   { to: '/admin/cola', label: 'Cola', icon: ListOrdered, showQueueCount: true },
