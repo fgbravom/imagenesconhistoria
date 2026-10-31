@@ -112,7 +112,7 @@ export default function Home() {
           </h1>
 
           <p className="mt-6 text-stone-400 text-lg sm:text-xl font-sans max-w-xl mx-auto leading-relaxed">
-            Fotografías que elegí porque algo me dicen. Cada imagen guarda una historia.
+            Cada imagen guarda una historia.
           </p>
         </div>
 
