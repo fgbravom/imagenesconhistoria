@@ -1,6 +1,6 @@
 # Imágenes con Historia — Estructura del Proyecto
 
-Galería web de fotografías históricas deportivas (chilenas y mundiales). Cada foto tiene título, historia narrativa, atleta, año, lugar, fotógrafo y deporte.
+Galería personal de fotografías elegidas por su autor, cada una con su historia. Cada foto tiene título, historia narrativa y, opcionalmente, año, lugar y fotógrafo. (Las columnas `sport_id` y `athlete_name` siguen en la BD por las fotos antiguas, pero la UI ya no las pide ni las muestra.)
 
 ---
 
@@ -89,7 +89,7 @@ Email + contraseña via InsForge Auth. Un solo admin.
 
 | Ruta | Página | Notas |
 |---|---|---|
-| `/` | `Home` | Hero + galería paginada |
+| `/` | `Home` | Hero + galería con scroll infinito |
 | `/foto/:id` | `PhotoDetail` | Detalle + historia completa |
 | `/login` | `Login` | Solo email/password |
 | `/admin` | `Admin` | Protegida, requiere auth |
@@ -128,9 +128,7 @@ docs/
 
 ### `Home`
 - **Hero:** imagen de la foto con `featured=true` de fondo (blanco y negro, opacidad 30%). Si no hay ninguna, gradiente radial oscuro.
-- **Galería:** grid 1→2→3→4 cols. Paginación "load more" de 12 en 12 (`PAGE_SIZE = 12`).
-- **Filtros:** búsqueda por `athlete_name` (ilike), pills de deporte, pills de década (1940s–2020s).
-- **Décadas disponibles:** array `DECADES` hardcodeado en el componente.
+- **Galería:** masonry 2→3→4 cols, ordenada por `created_at` desc. Carga 30 fotos (`PAGE_SIZE = 30`) y las siguientes 30 automáticamente al acercarse al final (`IntersectionObserver` sobre un sentinel bajo la grilla). Sin filtros.
 
 ### `PhotoDetail`
 - Layout 2 columnas en desktop: imagen sticky a la izquierda, historia a la derecha.
@@ -141,7 +139,7 @@ docs/
 Tres secciones independientes en la misma página:
 
 1. **`FeaturedManager`** — grid de miniaturas para seleccionar foto de portada. La activa tiene borde dorado. Cambio: desmarcar `featured=true` en todas → marcar la nueva.
-2. **`PhotoManager`** — lista editable de todas las fotos. Inline `EditForm` expandible por fila. Edita: title, story, sport_id, year, athlete_name, photographer, location.
+2. **`PhotoManager`** — lista editable de todas las fotos. Inline `EditForm` expandible por fila. Edita: title, story, year, photographer, location.
 3. **`UploadForm`** — subida de nueva foto. Drag & drop o click. Flujo: upload a storage → insert en DB. Dispara `CustomEvent('photo-uploaded')` al terminar para que FeaturedManager y PhotoManager se actualicen.
 
 Comunicación entre secciones vía `window.dispatchEvent(new CustomEvent('photo-uploaded' | 'photo-updated'))`.
