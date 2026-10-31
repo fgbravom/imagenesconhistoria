@@ -34,20 +34,28 @@ export default function Photos() {
     setSettingFeatured(photoId)
     setStatus(null)
 
-    // Primero desmarcar la portada actual (solo la que tiene featured=true)
-    await insforge.database
-      .from('photos')
-      .update({ featured: false })
-      .eq('featured', true)
-
-    // Luego marcar la nueva
-    const { error } = await insforge.database
+    // Primero marcar la nueva y después desmarcar las demás: si algo falla a
+    // mitad de camino el sitio nunca queda sin portada (Home toma solo una).
+    const { error: markErr } = await insforge.database
       .from('photos')
       .update({ featured: true })
       .eq('id', photoId)
 
-    if (error) {
+    if (markErr) {
       setStatus({ type: 'error', msg: 'Error al actualizar la portada.' })
+      setSettingFeatured(null)
+      return
+    }
+
+    const { error: unmarkErr } = await insforge.database
+      .from('photos')
+      .update({ featured: false })
+      .eq('featured', true)
+      .neq('id', photoId)
+
+    if (unmarkErr) {
+      setPhotos(prev => prev.map(p => p.id === photoId ? { ...p, featured: true } : p))
+      setStatus({ type: 'error', msg: 'La nueva portada quedó marcada, pero no se pudo desmarcar la anterior. Inténtalo de nuevo.' })
     } else {
       setPhotos(prev => prev.map(p => ({ ...p, featured: p.id === photoId })))
       setStatus({ type: 'success', msg: 'Foto de portada actualizada.' })
@@ -74,6 +82,8 @@ export default function Photos() {
     setEditingId(null)
     setStatus({ type: 'success', msg: 'Cambios guardados.' })
   }
+
+  const featuredCount = photos.filter(p => p.featured).length
 
   return (
     <>
@@ -124,11 +134,11 @@ export default function Photos() {
                 <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                   <button
                     onClick={() => setFeatured(photo.id)}
-                    disabled={photo.featured || settingFeatured === photo.id}
+                    disabled={(photo.featured && featuredCount === 1) || settingFeatured === photo.id}
                     aria-label={photo.featured ? 'Portada actual' : 'Marcar como portada'}
                     title={photo.featured ? 'Portada actual' : 'Marcar como portada'}
                     className={`p-2.5 transition-colors ${
-                      photo.featured ? 'text-amber-400 cursor-default' : 'text-stone-600 hover:text-amber-400'
+                      photo.featured ? 'text-amber-400 disabled:cursor-default' : 'text-stone-600 hover:text-amber-400'
                     }`}
                   >
                     {settingFeatured === photo.id ? (
