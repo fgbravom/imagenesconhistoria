@@ -64,8 +64,20 @@ Seed inicial: Fútbol, Tenis, Boxeo, Atletismo, Ciclismo, Natación, Esquí, Bas
 
 **Índices:** `sport_id`, `year`, `featured`, `athlete_name`
 
+### `photo_queue`
+Fotos cargadas por adelantado para la publicación automática semanal. Mismas columnas de contenido que `photos` más:
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| queue_order | integer | Orden manual; menor se publica antes, `NULL` = por `created_at` |
+| status | text | `pending` / `published` / `skipped` |
+| published_at | timestamptz | Momento en que se publicó |
+| published_photo_id | uuid FK → photos | ON DELETE SET NULL |
+
+`publish_next_queued_photo()` (RPC, `SECURITY DEFINER`) copia la pendiente siguiente a `photos` y la marca como publicada. La llama una Schedule semanal de InsForge y el botón "Publicar la siguiente ahora" del admin.
+
 ### RLS
-- `SELECT` público en ambas tablas
+- `SELECT` público en `sports` y `photos`; `photo_queue` solo para autenticados
 - `INSERT / UPDATE / DELETE` solo para usuarios autenticados (admin)
 
 ### Storage
@@ -81,7 +93,7 @@ Email + contraseña via InsForge Auth. Un solo admin.
 - `src/lib/AuthContext.jsx` — Context `AuthProvider` + hook `useAuth()`
 - Estado: `user` (`undefined` = cargando, `null` = sin sesión, objeto = logueado)
 - Métodos: `signIn(email, password)`, `signOut()`
-- La ruta `/admin` redirige a `/login` si no hay sesión
+- Las rutas `/admin/*` redirigen a `/login` si no hay sesión (lo hace `AdminLayout`)
 
 ---
 
@@ -92,7 +104,12 @@ Email + contraseña via InsForge Auth. Un solo admin.
 | `/` | `Home` | Hero + galería con scroll infinito |
 | `/foto/:id` | `PhotoDetail` | Detalle + historia completa |
 | `/login` | `Login` | Solo email/password |
-| `/admin` | `Admin` | Protegida, requiere auth |
+| `/admin` | `admin/Overview` | Resumen. Protegida, requiere auth |
+| `/admin/fotos` | `admin/Photos` | Lista, búsqueda, edición, portada, borrado |
+| `/admin/publicar` | `admin/Publish` | Publicar ahora o agregar a la cola |
+| `/admin/cola` | `admin/Queue` | Cola pendiente e historial de publicadas |
+
+Las rutas públicas comparten `PublicLayout` (Navbar + `Outlet`, en `App.jsx`); las de admin usan `AdminLayout`, sin el Navbar público.
 
 ---
 
@@ -102,21 +119,33 @@ Email + contraseña via InsForge Auth. Un solo admin.
 src/
 ├── lib/
 │   ├── insforge.js        # cliente InsForge
-│   └── AuthContext.jsx    # contexto de auth global
+│   ├── AuthContext.jsx    # contexto de auth global
+│   ├── photoRecords.js    # subir/borrar imágenes y actualizar/borrar filas con su archivo
+│   └── useStatus.js       # estado de StatusBanner
 ├── components/
 │   ├── Navbar.jsx         # sticky transparente, links condicionales por auth
-│   └── PhotoCard.jsx      # card de galería (grayscale → color on hover)
+│   ├── PhotoCard.jsx      # card de galería (grayscale → color on hover)
+│   └── admin/
+│       ├── AdminLayout.jsx  # drawer lateral + guard de auth + Outlet
+│       ├── PhotoForm.jsx    # formulario de foto (publicar y edición inline)
+│       └── ui.jsx           # PageHeader, StatusBanner, Field, ListSkeleton
 ├── pages/
 │   ├── Home.jsx           # hero + galería
 │   ├── PhotoDetail.jsx    # vista detalle
 │   ├── Login.jsx          # formulario login
-│   └── Admin.jsx          # panel admin (3 secciones)
-├── App.jsx                # router + AuthProvider
+│   └── admin/
+│       ├── Overview.jsx   # resumen
+│       ├── Photos.jsx     # fotografías publicadas
+│       ├── Publish.jsx    # publicar / agregar a la cola
+│       └── Queue.jsx      # cola
+├── App.jsx                # router + AuthProvider + PublicLayout
 ├── main.jsx               # punto de entrada
-└── App.css                # estilos globales (incluye .input-field)
+└── index.css              # estilos globales (incluye .input-field)
 
 migrations/
-└── 20260423005545_create-sports-and-photos.sql
+├── 20260423005545_create-sports-and-photos.sql
+├── 20260718000000_restore-data.sql
+└── 20260720210813_create-photo-queue.sql
 
 docs/
 └── project-structure.md   # este archivo
@@ -135,14 +164,15 @@ docs/
 - Botón "Eliminar" visible solo si hay usuario autenticado.
 - Borrado: primero storage (`insforge.storage.from('photos').remove([image_key])`), luego DB.
 
-### `Admin`
-Tres secciones independientes en la misma página:
+### Admin
+Layout con drawer a la izquierda (`AdminLayout`): fijo en desktop (`lg+`), off-canvas en móvil con botón hamburguesa, overlay y cierre con Esc. Muestra el conteo de la cola pendiente, el email del usuario, "Ver sitio" y "Cerrar sesión".
 
-1. **`FeaturedManager`** — grid de miniaturas para seleccionar foto de portada. La activa tiene borde dorado. Cambio: desmarcar `featured=true` en todas → marcar la nueva.
-2. **`PhotoManager`** — lista editable de todas las fotos. Inline `EditForm` expandible por fila. Edita: title, story, year, photographer, location.
-3. **`UploadForm`** — subida de nueva foto. Drag & drop o click. Flujo: upload a storage → insert en DB. Dispara `CustomEvent('photo-uploaded')` al terminar para que FeaturedManager y PhotoManager se actualicen.
+1. **Resumen** — conteo de publicadas y en cola, portada actual, próxima en publicarse y última publicada.
+2. **Fotografías** — lista con búsqueda (título, lugar, fotógrafo, año, filtrado en cliente). Portada: se marca la nueva y luego se desmarcan las demás, para no quedar nunca sin portada. Edición inline con `PhotoForm`. Al reemplazar o borrar, el archivo de storage se toca solo después de que la fila quedó guardada o borrada.
+3. **Publicar** — toggle "Publicar ahora" (insert en `photos`) / "Agregar a la cola" (insert en `photo_queue`). Si el insert falla, se borra la imagen recién subida.
+4. **Cola** — pestañas Pendientes (orden manual, editar, quitar, "Publicar la siguiente ahora") y Publicadas (historial con link a la foto).
 
-Comunicación entre secciones vía `window.dispatchEvent(new CustomEvent('photo-uploaded' | 'photo-updated'))`.
+Cada vista carga sus datos al montarse. Las vistas que cambian la cola disparan `CustomEvent('queue-updated')` para refrescar el conteo del drawer.
 
 ---
 
@@ -151,8 +181,8 @@ Comunicación entre secciones vía `window.dispatchEvent(new CustomEvent('photo-
 - **Fondo:** `stone-950` (casi negro)
 - **Color de acento:** `brand-red` (rojo, definido en Tailwind config)
 - **Tipografía:** `font-serif` para títulos, `font-sans` para cuerpo y UI
-- **Clase reutilizable:** `.input-field` definida en `App.css` — input/select/textarea con estilo dark consistente
-- **Patrón de imágenes:** grayscale por defecto, color al hover (tanto en cards como en FeaturedManager)
+- **Clase reutilizable:** `.input-field` definida en `index.css` — input/select/textarea con estilo dark consistente
+- **Patrón de imágenes:** grayscale por defecto, color al hover (cards de la galería y del resumen del admin)
 
 ---
 
