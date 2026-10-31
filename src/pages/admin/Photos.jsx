@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Star, Pencil, Trash2, ChevronDown, ChevronUp, Upload } from 'lucide-react'
+import { Star, Pencil, Trash2, ChevronDown, ChevronUp, Upload, Search } from 'lucide-react'
 import { insforge } from '../../lib/insforge'
 import { updateWithImage, deleteWithImage } from '../../lib/photoRecords'
 import { useStatus } from '../../lib/useStatus'
@@ -22,6 +22,7 @@ export default function Photos() {
   const [editingId, setEditingId] = useState(null)
   const [settingFeatured, setSettingFeatured] = useState(null)
   const [status, setStatus, clearStatus] = useStatus()
+  const [query, setQuery] = useState('')
 
   useEffect(() => {
     fetchPhotos().then(data => {
@@ -84,6 +85,11 @@ export default function Photos() {
   }
 
   const featuredCount = photos.filter(p => p.featured).length
+  const q = query.trim().toLowerCase()
+  const visible = q
+    ? photos.filter(p =>
+        [p.title, p.location, p.photographer, p.year].some(v => String(v ?? '').toLowerCase().includes(q)))
+    : photos
 
   return (
     <>
@@ -100,13 +106,34 @@ export default function Photos() {
 
       <StatusBanner status={status} onDismiss={clearStatus} className="mb-6" />
 
+      {!loading && photos.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <div className="relative flex-1 min-w-[12rem] max-w-md">
+            <Search className="w-4 h-4 text-stone-600 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="search"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Buscar por título, lugar, fotógrafo o año"
+              aria-label="Buscar fotografías"
+              className="input-field pl-9"
+            />
+          </div>
+          <p className="text-stone-500 text-xs font-sans uppercase tracking-widest">
+            {q ? `${visible.length} de ${photos.length}` : `${photos.length} fotografías`}
+          </p>
+        </div>
+      )}
+
       {loading ? (
         <ListSkeleton />
       ) : photos.length === 0 ? (
         <p className="text-stone-600 font-sans text-sm">Aún no has subido fotografías.</p>
+      ) : visible.length === 0 ? (
+        <p className="text-stone-600 font-sans text-sm">Ninguna fotografía coincide con «{query.trim()}».</p>
       ) : (
         <div className="divide-y divide-stone-800 border border-stone-800">
-          {photos.map(photo => (
+          {visible.map(photo => (
             <div key={photo.id}>
               <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4">
                 <img
