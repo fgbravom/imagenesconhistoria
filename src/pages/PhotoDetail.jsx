@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { Calendar, User, MapPin, Camera, ArrowLeft, Trash2 } from 'lucide-react'
+import { Calendar, MapPin, Camera, ArrowLeft, Trash2 } from 'lucide-react'
 import { insforge } from '../lib/insforge'
 
 export default function PhotoDetail() {
@@ -14,7 +14,7 @@ export default function PhotoDetail() {
     insforge.auth.getCurrentUser().then(({ data }) => setUser(data?.user ?? null))
     insforge.database
       .from('photos')
-      .select('*, sports(name, slug)')
+      .select('*')
       .eq('id', id)
       .limit(1)
       .then(({ data }) => {
@@ -86,11 +86,6 @@ export default function PhotoDetail() {
                   <Calendar className="w-3 h-3" /> {photo.year}
                 </span>
               )}
-              {photo.athlete_name && (
-                <span className="flex items-center gap-1">
-                  <User className="w-3 h-3" /> {photo.athlete_name}
-                </span>
-              )}
               {photo.location && (
                 <span className="flex items-center gap-1">
                   <MapPin className="w-3 h-3" /> {photo.location}
@@ -106,15 +101,7 @@ export default function PhotoDetail() {
 
           {/* Story */}
           <div>
-            {photo.sports && (
-              <Link
-                to={`/?sport=${photo.sports.slug}`}
-                className="text-brand-red text-xs uppercase tracking-widest font-sans hover:text-red-400 transition-colors"
-              >
-                {photo.sports.name}
-              </Link>
-            )}
-            <h1 className="font-serif text-3xl sm:text-4xl text-stone-100 mt-2 leading-tight">
+            <h1 className="font-serif text-3xl sm:text-4xl text-stone-100 leading-tight">
               {photo.title}
             </h1>
             <div className="mt-8 prose prose-invert prose-stone max-w-none prose-p:font-sans prose-p:text-stone-300 prose-p:leading-relaxed">

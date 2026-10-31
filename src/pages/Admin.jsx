@@ -62,7 +62,6 @@ async function uploadImage(file) {
 /* ── Gestión y edición de fotos ── */
 function PhotoManager() {
   const [photos, setPhotos] = useState([])
-  const [sports, setSports] = useState([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState(null)
   const [settingFeatured, setSettingFeatured] = useState(null)
@@ -76,15 +75,11 @@ function PhotoManager() {
 
   async function fetchAll() {
     setLoading(true)
-    const [photosRes, sportsRes] = await Promise.all([
-      insforge.database
-        .from('photos')
-        .select('*, sports(name)')
-        .order('created_at', { ascending: false }),
-      insforge.database.from('sports').select('*').order('name'),
-    ])
-    setPhotos(photosRes.data ?? [])
-    setSports(sportsRes.data ?? [])
+    const { data } = await insforge.database
+      .from('photos')
+      .select('*')
+      .order('created_at', { ascending: false })
+    setPhotos(data ?? [])
     setLoading(false)
   }
 
@@ -166,7 +161,7 @@ function PhotoManager() {
                     <p className="text-stone-100 text-sm font-sans font-medium truncate">{photo.title}</p>
                   </div>
                   <p className="text-stone-500 text-xs font-sans">
-                    {[photo.sports?.name, photo.athlete_name, photo.year].filter(Boolean).join(' · ')}
+                    {[photo.year, photo.location].filter(Boolean).join(' · ')}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -207,7 +202,6 @@ function PhotoManager() {
               {editingId === photo.id && (
                 <EditForm
                   photo={photo}
-                  sports={sports}
                   onSaved={handleSaved}
                   onCancel={() => setEditingId(null)}
                 />
@@ -220,13 +214,11 @@ function PhotoManager() {
   )
 }
 
-function EditForm({ photo, sports, onSaved, onCancel }) {
+function EditForm({ photo, onSaved, onCancel }) {
   const [form, setForm] = useState({
     title: photo.title ?? '',
     story: photo.story ?? '',
-    sport_id: photo.sport_id ?? '',
     year: photo.year ?? '',
-    athlete_name: photo.athlete_name ?? '',
     photographer: photo.photographer ?? '',
     location: photo.location ?? '',
   })
@@ -257,7 +249,6 @@ function EditForm({ photo, sports, onSaved, onCancel }) {
     const changes = {
       ...form,
       year: form.year ? parseInt(form.year) : null,
-      sport_id: form.sport_id || null,
     }
 
     // Si eligió una imagen nueva, subirla antes de guardar los datos.
@@ -341,22 +332,10 @@ function EditForm({ photo, sports, onSaved, onCancel }) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        <Field label="Deporte">
-          <select value={form.sport_id}
-            onChange={e => setForm(f => ({ ...f, sport_id: e.target.value }))} className="input-field">
-            <option value="">Sin clasificar</option>
-            {sports.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        </Field>
         <Field label="Año">
-          <input type="number" min="1900" max="2025" value={form.year}
+          <input type="number" min="1900" max={new Date().getFullYear()} value={form.year}
             onChange={e => setForm(f => ({ ...f, year: e.target.value }))}
             className="input-field" placeholder="1985" />
-        </Field>
-        <Field label="Atleta(s)">
-          <input type="text" value={form.athlete_name}
-            onChange={e => setForm(f => ({ ...f, athlete_name: e.target.value }))}
-            className="input-field" />
         </Field>
         <Field label="Fotógrafo">
           <input type="text" value={form.photographer}
@@ -393,11 +372,9 @@ function EditForm({ photo, sports, onSaved, onCancel }) {
 /* ── Publicar fotografía: ahora o en cola ── */
 function PublishManager() {
   const fileRef = useRef()
-  const [sports, setSports] = useState([])
   const [mode, setMode] = useState('now') // 'now' | 'queue'
   const [form, setForm] = useState({
-    title: '', story: '', sport_id: '', year: '',
-    athlete_name: '', photographer: '', location: '',
+    title: '', story: '', year: '', photographer: '', location: '',
   })
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
@@ -408,9 +385,6 @@ function PublishManager() {
   const [publishing, setPublishing] = useState(false)
 
   useEffect(() => {
-    insforge.database.from('sports').select('*').order('name').then(({ data }) => {
-      if (data) setSports(data)
-    })
     fetchQueue()
   }, [])
 
@@ -458,7 +432,6 @@ function PublishManager() {
     const payload = {
       ...form,
       year: form.year ? parseInt(form.year) : null,
-      sport_id: form.sport_id || null,
       image_url: url,
       image_key: key,
     }
@@ -483,7 +456,7 @@ function PublishManager() {
       fetchQueue()
     }
 
-    setForm({ title: '', story: '', sport_id: '', year: '', athlete_name: '', photographer: '', location: '' })
+    setForm({ title: '', story: '', year: '', photographer: '', location: '' })
     setFile(null)
     setPreview(null)
     setUploading(false)
@@ -637,27 +610,15 @@ function PublishManager() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <Field label="Deporte">
-            <select value={form.sport_id}
-              onChange={e => setForm(f => ({ ...f, sport_id: e.target.value }))} className="input-field">
-              <option value="">Sin clasificar</option>
-              {sports.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </Field>
           <Field label="Año">
-            <input type="number" min="1900" max="2025" value={form.year}
+            <input type="number" min="1900" max={new Date().getFullYear()} value={form.year}
               onChange={e => setForm(f => ({ ...f, year: e.target.value }))}
               className="input-field" placeholder="1985" />
-          </Field>
-          <Field label="Atleta(s)">
-            <input type="text" value={form.athlete_name}
-              onChange={e => setForm(f => ({ ...f, athlete_name: e.target.value }))}
-              className="input-field" placeholder="Marcelo Ríos" />
           </Field>
           <Field label="Fotógrafo">
             <input type="text" value={form.photographer}
               onChange={e => setForm(f => ({ ...f, photographer: e.target.value }))}
-              className="input-field" placeholder="Agencia EFE" />
+              className="input-field" placeholder="Nombre o archivo de origen" />
           </Field>
           <Field label="Lugar">
             <input type="text" value={form.location}

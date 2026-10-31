@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Calendar, User } from 'lucide-react'
+import { Calendar, MapPin } from 'lucide-react'
 
 export default function PhotoCard({ photo }) {
   const cardRef = useRef(null)
@@ -39,12 +39,7 @@ export default function PhotoCard({ photo }) {
       {/* Leyenda: solo en desktop, revelada con hover. En mobile no hay leyenda,
           únicamente el cambio de blanco y negro a color al pasar por el centro. */}
       <div className="hidden sm:flex absolute inset-0 bg-gradient-to-t from-stone-950/90 via-stone-950/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex-col justify-end p-4">
-        {photo.sports && (
-          <span className="text-brand-red text-xs uppercase tracking-widest font-sans">
-            {photo.sports.name}
-          </span>
-        )}
-        <h3 className="font-serif text-stone-100 text-base leading-snug line-clamp-2 mt-0.5">
+        <h3 className="font-serif text-stone-100 text-base leading-snug line-clamp-2">
           {photo.title}
         </h3>
         <div className="flex items-center gap-4 mt-1.5 text-stone-400 text-xs font-sans">
@@ -53,9 +48,9 @@ export default function PhotoCard({ photo }) {
               <Calendar className="w-3 h-3" /> {photo.year}
             </span>
           )}
-          {photo.athlete_name && (
+          {photo.location && (
             <span className="flex items-center gap-1">
-              <User className="w-3 h-3" /> {photo.athlete_name}
+              <MapPin className="w-3 h-3" /> {photo.location}
             </span>
           )}
         </div>
