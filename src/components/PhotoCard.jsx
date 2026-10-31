@@ -5,6 +5,28 @@ import { Calendar, MapPin } from 'lucide-react'
 export default function PhotoCard({ photo }) {
   const cardRef = useRef(null)
   const [inView, setInView] = useState(false)
+  const [near, setNear] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  // Carga diferida propia en vez de loading="lazy": el umbral nativo es de
+  // 1250–2500px y la galería entera cabe en ese rango, así que se bajaba todo
+  // de una. Aquí la imagen se pide recién cuando está a 300px de aparecer.
+  useEffect(() => {
+    const el = cardRef.current
+    if (!el) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setNear(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '300px 0px' }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     const el = cardRef.current
@@ -25,15 +47,19 @@ export default function PhotoCard({ photo }) {
     <Link
       ref={cardRef}
       to={`/foto/${photo.id}`}
-      className="group block break-inside-avoid mb-2 overflow-hidden relative bg-stone-900"
+      className="group block overflow-hidden relative bg-stone-900"
+      // Mientras no carga, la tarjeta reserva un alto 4:3 para que el
+      // observer vea su posición real y la columna no colapse a cero.
+      style={loaded ? undefined : { aspectRatio: '4 / 3' }}
     >
       <img
-        src={photo.image_url}
+        src={near ? photo.image_url : undefined}
         alt={photo.title}
-        loading="lazy"
-        className={`w-full block transition-all duration-500 sm:grayscale sm:group-hover:grayscale-0 ${
+        decoding="async"
+        onLoad={() => setLoaded(true)}
+        className={`w-full block transition-[filter,opacity] duration-500 sm:grayscale sm:group-hover:grayscale-0 ${
           inView ? 'grayscale-0' : 'grayscale'
-        }`}
+        } ${loaded ? 'opacity-100' : 'opacity-0'}`}
       />
 
       {/* Leyenda: solo en desktop, revelada con hover. En mobile no hay leyenda,

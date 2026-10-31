@@ -6,6 +6,26 @@ import PhotoCard from '../components/PhotoCard'
 
 const PAGE_SIZE = 30
 
+// Mismos cortes que tenían las clases columns-2 lg:columns-3 xl:columns-4.
+function getColumnCount() {
+  if (window.matchMedia('(min-width: 1280px)').matches) return 4
+  if (window.matchMedia('(min-width: 1024px)').matches) return 3
+  return 2
+}
+
+function useColumnCount() {
+  const [count, setCount] = useState(getColumnCount)
+
+  useEffect(() => {
+    const queries = ['(min-width: 1024px)', '(min-width: 1280px)'].map(q => window.matchMedia(q))
+    const update = () => setCount(getColumnCount())
+    queries.forEach(q => q.addEventListener('change', update))
+    return () => queries.forEach(q => q.removeEventListener('change', update))
+  }, [])
+
+  return count
+}
+
 export default function Home() {
   const [featured, setFeatured] = useState(null)
   const [photos, setPhotos] = useState([])
@@ -17,6 +37,7 @@ export default function Home() {
   const sentinelRef = useRef(null)
   const loadingRef = useRef(false)
   const pageRef = useRef(0)
+  const columnCount = useColumnCount()
 
   async function loadPhotos(pageNum) {
     loadingRef.current = true
@@ -58,6 +79,13 @@ export default function Home() {
   // si no hay ninguna, apenas confirmamos que no hay nada que esperar) para
   // que el texto y la foto aparezcan juntos en vez de por capas.
   const heroReady = heroLoaded || (featuredChecked && !featured)
+
+  // Masonry con columnas fijas en vez de CSS columns: con columns-* el
+  // navegador redistribuye todas las fotos cada vez que una carga o llega otra
+  // página, y la galería salta. Repartidas por índice, cada foto queda siempre
+  // en su columna y lo nuevo solo se agrega al final.
+  const columns = Array.from({ length: columnCount }, () => [])
+  photos.forEach((p, i) => columns[i % columnCount].push(p))
 
   // Scroll infinito: al acercarse el sentinel al viewport se pide la página
   // siguiente. Se re-crea tras cada página para que, si el sentinel sigue
@@ -147,8 +175,12 @@ export default function Home() {
           </div>
         ) : photos.length > 0 ? (
           <>
-            <div className="columns-2 lg:columns-3 xl:columns-4 gap-2">
-              {photos.map(p => <PhotoCard key={p.id} photo={p} />)}
+            <div className="flex items-start gap-2">
+              {columns.map((col, i) => (
+                <div key={i} className="flex-1 min-w-0 flex flex-col gap-2">
+                  {col.map(p => <PhotoCard key={p.id} photo={p} />)}
+                </div>
+              ))}
             </div>
             {hasMore && (
               <div ref={sentinelRef} className="text-center mt-12 px-4 h-8">
