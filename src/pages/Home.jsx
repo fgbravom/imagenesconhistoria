@@ -1,44 +1,49 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Camera } from 'lucide-react'
+import { Camera } from 'lucide-react'
 import { insforge } from '../lib/insforge'
 import PhotoCard from '../components/PhotoCard'
 
-const DECADES = [
-  { label: 'Todas las épocas', value: null },
-  { label: '1940s', value: 1940 },
-  { label: '1950s', value: 1950 },
-  { label: '1960s', value: 1960 },
-  { label: '1970s', value: 1970 },
-  { label: '1980s', value: 1980 },
-  { label: '1990s', value: 1990 },
-  { label: '2000s', value: 2000 },
-  { label: '2010s', value: 2010 },
-  { label: '2020s', value: 2020 },
-]
-
-const PAGE_SIZE = 12
+const PAGE_SIZE = 30
 
 export default function Home() {
   const [featured, setFeatured] = useState(null)
   const [photos, setPhotos] = useState([])
-  const [sports, setSports] = useState([])
   const [loading, setLoading] = useState(true)
-  const [sportFilter, setSportFilter] = useState(null)
-  const [decadeFilter, setDecadeFilter] = useState(null)
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(0)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
   const [heroLoaded, setHeroLoaded] = useState(false)
   const [featuredChecked, setFeaturedChecked] = useState(false)
+  const sentinelRef = useRef(null)
+  const loadingRef = useRef(false)
+  const pageRef = useRef(0)
+
+  async function loadPhotos(pageNum) {
+    loadingRef.current = true
+    // La primera página arranca con loading=true desde el estado inicial.
+    if (pageNum > 0) setLoadingMore(true)
+
+    const { data } = await insforge.database
+      .from('photos')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(pageNum * PAGE_SIZE, (pageNum + 1) * PAGE_SIZE - 1)
+
+    const rows = data ?? []
+    if (pageNum === 0) setPhotos(rows)
+    else setPhotos(prev => [...prev, ...rows])
+    pageRef.current = pageNum
+    setHasMore(rows.length === PAGE_SIZE)
+
+    loadingRef.current = false
+    setLoading(false)
+    setLoadingMore(false)
+  }
 
   useEffect(() => {
-    insforge.database.from('sports').select('*').order('name').then(({ data }) => {
-      if (data) setSports(data)
-    })
     insforge.database
       .from('photos')
-      .select('*, sports(name, slug)')
+      .select('*')
       .eq('featured', true)
       .limit(1)
       .order('created_at', { ascending: false })
@@ -46,6 +51,7 @@ export default function Home() {
         if (data?.length) setFeatured(data[0])
         setFeaturedChecked(true)
       })
+    loadPhotos(0)
   }, [])
 
   // El hero se revela recién cuando la imagen destacada terminó de cargar (o,
@@ -53,40 +59,22 @@ export default function Home() {
   // que el texto y la foto aparezcan juntos en vez de por capas.
   const heroReady = heroLoaded || (featuredChecked && !featured)
 
+  // Scroll infinito: al acercarse el sentinel al viewport se pide la página
+  // siguiente. Se re-crea tras cada página para que, si el sentinel sigue
+  // visible (pantallas altas), vuelva a disparar sin esperar otro scroll.
   useEffect(() => {
-    setPage(0)
-    loadPhotos(0)
-  }, [sportFilter, decadeFilter, search])
+    const el = sentinelRef.current
+    if (!el || !hasMore) return
 
-  async function loadPhotos(pageNum) {
-    if (pageNum === 0) setLoading(true)
-    else setLoadingMore(true)
-
-    let query = insforge.database
-      .from('photos')
-      .select('*, sports(name, slug)')
-      .order('year', { ascending: false })
-      .range(pageNum * PAGE_SIZE, (pageNum + 1) * PAGE_SIZE - 1)
-
-    if (sportFilter) query = query.eq('sport_id', sportFilter)
-    if (decadeFilter) query = query.gte('year', decadeFilter).lt('year', decadeFilter + 10)
-    if (search.trim()) query = query.ilike('athlete_name', `%${search.trim()}%`)
-
-    const { data } = await query
-    if (pageNum === 0) setPhotos(data ?? [])
-    else setPhotos(prev => [...prev, ...(data ?? [])])
-
-    setLoading(false)
-    setLoadingMore(false)
-  }
-
-  function loadMore() {
-    const next = page + 1
-    setPage(next)
-    loadPhotos(next)
-  }
-
-  const hasActiveFilter = sportFilter || decadeFilter || search.trim()
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !loadingRef.current) loadPhotos(pageRef.current + 1)
+      },
+      { rootMargin: '600px 0px' }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasMore, photos.length])
 
   return (
     <div className="min-h-screen">
@@ -145,47 +133,6 @@ export default function Home() {
           <div className="h-px flex-1 bg-stone-800" />
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-col gap-4 mb-10 max-w-7xl mx-auto px-4 sm:px-6">
-          {/* Search */}
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500" />
-            <input
-              type="text"
-              placeholder="Buscar por atleta..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full bg-stone-900 border border-stone-700 text-stone-100 placeholder-stone-500 pl-9 pr-4 py-2 text-sm font-sans focus:outline-none focus:border-brand-red transition-colors rounded-none"
-            />
-          </div>
-
-          {/* Sport pills */}
-          <div className="flex flex-wrap gap-2">
-            <FilterPill active={!sportFilter} onClick={() => setSportFilter(null)}>
-              Todos los deportes
-            </FilterPill>
-            {sports.map(s => (
-              <FilterPill key={s.id} active={sportFilter === s.id} onClick={() => setSportFilter(s.id)}>
-                {s.name}
-              </FilterPill>
-            ))}
-          </div>
-
-          {/* Decade pills */}
-          <div className="flex flex-wrap gap-2">
-            {DECADES.map(d => (
-              <FilterPill
-                key={d.label}
-                active={decadeFilter === d.value}
-                onClick={() => setDecadeFilter(d.value)}
-                variant="light"
-              >
-                {d.label}
-              </FilterPill>
-            ))}
-          </div>
-        </div>
-
         {/* Grid */}
         {loading ? (
           <div className="columns-2 lg:columns-3 xl:columns-4 gap-2">
@@ -203,34 +150,24 @@ export default function Home() {
             <div className="columns-2 lg:columns-3 xl:columns-4 gap-2">
               {photos.map(p => <PhotoCard key={p.id} photo={p} />)}
             </div>
-            {photos.length % PAGE_SIZE === 0 && (
-              <div className="text-center mt-12 px-4">
-                <button
-                  onClick={loadMore}
-                  disabled={loadingMore}
-                  className="bg-stone-900 border border-stone-700 text-stone-300 px-10 py-3 text-sm font-sans uppercase tracking-widest hover:border-brand-red hover:text-brand-red transition-colors disabled:opacity-50"
-                >
-                  {loadingMore ? 'Cargando...' : 'Cargar más fotografías'}
-                </button>
+            {hasMore && (
+              <div ref={sentinelRef} className="text-center mt-12 px-4 h-8">
+                {loadingMore && (
+                  <span className="text-stone-600 text-xs font-sans uppercase tracking-widest">Cargando...</span>
+                )}
               </div>
             )}
           </>
         ) : (
           <div className="text-center py-24 flex flex-col items-center gap-4">
             <Camera className="w-12 h-12 text-stone-700" />
-            {hasActiveFilter ? (
-              <p className="text-stone-500 font-sans">No se encontraron fotografías con esos filtros.</p>
-            ) : (
-              <>
-                <p className="text-stone-500 font-sans">Aún no hay fotografías publicadas.</p>
-                <Link
-                  to="/admin"
-                  className="bg-brand-red text-white text-sm font-sans uppercase tracking-widest px-6 py-2 hover:bg-red-700 transition-colors"
-                >
-                  Subir la primera fotografía
-                </Link>
-              </>
-            )}
+            <p className="text-stone-500 font-sans">Aún no hay fotografías publicadas.</p>
+            <Link
+              to="/admin"
+              className="bg-brand-red text-white text-sm font-sans uppercase tracking-widest px-6 py-2 hover:bg-red-700 transition-colors"
+            >
+              Subir la primera fotografía
+            </Link>
           </div>
         )}
       </section>
@@ -241,21 +178,5 @@ export default function Home() {
         </p>
       </footer>
     </div>
-  )
-}
-
-function FilterPill({ active, onClick, children, variant = 'red' }) {
-  const baseClass = 'px-3 py-1 text-xs font-sans uppercase tracking-widest transition-colors cursor-pointer'
-  if (active) {
-    return (
-      <button onClick={onClick} className={`${baseClass} ${variant === 'light' ? 'bg-stone-100 text-stone-950' : 'bg-brand-red text-white'}`}>
-        {children}
-      </button>
-    )
-  }
-  return (
-    <button onClick={onClick} className={`${baseClass} bg-stone-900 text-stone-400 border border-stone-700 hover:border-stone-500 hover:text-stone-200`}>
-      {children}
-    </button>
   )
 }
