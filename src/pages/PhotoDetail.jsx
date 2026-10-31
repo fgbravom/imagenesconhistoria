@@ -115,7 +115,7 @@ export default function PhotoDetail() {
 
       <footer className="border-t border-stone-800 py-8 text-center mt-16">
         <p className="text-stone-600 text-sm font-sans">
-          © {new Date().getFullYear()} Imágenes con Historia — Deporte Chileno
+          © {new Date().getFullYear()} Imágenes con Historia
         </p>
       </footer>
     </div>

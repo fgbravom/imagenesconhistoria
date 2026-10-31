@@ -102,7 +102,7 @@ export default function Home() {
         >
           <div className="flex items-center justify-center gap-2 mb-6">
             <div className="h-px w-12 bg-brand-red" />
-            <span className="text-brand-red text-xs uppercase tracking-[0.3em] font-sans">Chile — Deporte — Historia</span>
+            <span className="text-brand-red text-xs uppercase tracking-[0.3em] font-sans">Imagen — Historia — Memoria</span>
             <div className="h-px w-12 bg-brand-red" />
           </div>
 
@@ -112,7 +112,7 @@ export default function Home() {
           </h1>
 
           <p className="mt-6 text-stone-400 text-lg sm:text-xl font-sans max-w-xl mx-auto leading-relaxed">
-            Recopilación de fotografías históricas para Chile y el mundo. Cada imagen guarda una historia.
+            Fotografías que elegí porque algo me dicen. Cada imagen guarda una historia.
           </p>
         </div>
 
@@ -174,7 +174,7 @@ export default function Home() {
 
       <footer className="border-t border-stone-800 py-8 text-center">
         <p className="text-stone-600 text-sm font-sans">
-          © {new Date().getFullYear()} Imágenes con Historia — Deporte Chileno
+          © {new Date().getFullYear()} Imágenes con Historia
         </p>
       </footer>
     </div>
